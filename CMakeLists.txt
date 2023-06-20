@@ -70,6 +70,9 @@ function(mjb_build_and_install_mex mexname)
     NO_IMPLICIT_LINK_TO_MATLAB_LIBRARIES
     LINK_TO ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY} ${Matlab_DATAARRAY_LIBRARY} glfw mujoco::mujoco)
   target_compile_features(${mexname} PRIVATE cxx_std_17)
+  if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    target_compile_options(${mexname} PRIVATE -Wno-c++11-narrowing)
+  endif()
   install(
     TARGETS ${mexname}
     EXPORT ${PROJECT_NAME}
