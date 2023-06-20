@@ -28,8 +28,7 @@ set(OSQP_MATLAB_INSTALL_MATLAB_LIBDIR "mex" CACHE
 set(OSQP_MATLAB_INSTALL_MATLAB_MFILESDIR "mex" CACHE
     STRING "Location (relative to the install prefix) in which the Matlab .m files are installed.")
 
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ycm-0.12)
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/cmake-proposed)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ycm-0.15)
 
 # Enable RPATH support for installed binaries and libraries
 include(AddInstallRPATHSupport)
