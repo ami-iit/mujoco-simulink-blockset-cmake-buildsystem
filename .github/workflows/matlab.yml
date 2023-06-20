@@ -50,7 +50,13 @@ jobs:
         # Workaround for https://github.com/conda-incubator/setup-miniconda/issues/186
         conda config --remove channels defaults
         # Compilation related dependencies 
-        mamba install cmake compilers make ninja pkg-config libmujoco
+        mamba install cmake compilers make ninja pkg-config libmujoco glfw
+        
+    # Additional dependencies useful only on Linux, see https://conda-forge.org/docs/maintainer/knowledge_base.html#libgl
+    - name: Dependencies [Conda/Linux]
+      if: contains(matrix.os, 'ubuntu') 
+      run: |
+        mamba install mesa-libgl-cos7-x86_64 mesa-libgl-devel-cos7-x86_64 libselinux-cos7-x86_64 libxdamage-cos7-x86_64 libxxf86vm-cos7-x86_64 libxext-cos7-x86_64 xorg-libxfixes
 
     # Additional dependencies useful only on Windows
     - name: Dependencies [Conda/Windows]
