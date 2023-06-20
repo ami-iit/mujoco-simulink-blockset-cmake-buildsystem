@@ -68,7 +68,7 @@ function(mjb_build_and_install_mex mexname)
     OUTPUT_NAME ${mexname}
     SRC ${mujoco-simulink-blockset_SOURCE_DIR}/src/mj.cpp ${mujoco-simulink-blockset_SOURCE_DIR}/src/${mexname}.cpp
     NO_IMPLICIT_LINK_TO_MATLAB_LIBRARIES
-    LINK_TO ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY} glfw mujoco::mujoco)
+    LINK_TO ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY} ${Matlab_DATAARRAY_LIBRARY} glfw mujoco::mujoco)
   target_compile_features(${mexname} PRIVATE cxx_std_17)
   install(
     TARGETS ${mexname}
