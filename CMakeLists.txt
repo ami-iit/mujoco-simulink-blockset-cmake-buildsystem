@@ -23,11 +23,8 @@ if(BUILD_TESTING)
   enable_testing()
 endif()
 
-set(OSQP_MATLAB_INSTALL_MATLAB_LIBDIR "mex" CACHE
-    STRING "Location (relative to the install prefix) in which the Matlab mex libraries are installed.")
-set(OSQP_MATLAB_INSTALL_MATLAB_MFILESDIR "mex" CACHE
-    STRING "Location (relative to the install prefix) in which the Matlab .m files are installed.")
-
+set(MUJOCO_SIMULINK_BLOCKSET_INSTALL_DIR "mex/mujoco_simulink_blockset" CACHE
+    STRING "Location (relative to the install prefix) in which the toolset files are installed.")
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ycm-0.15)
 
 # Enable RPATH support for installed binaries and libraries
@@ -62,38 +59,36 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(mujoco-simulink-blockset)
 
-# Common source files
-set(M_FILES ${osqp-matlab_SOURCE_DIR}/osqp.m)
-set(MEX_FILES ${osqp-matlab_SOURCE_DIR}/osqp_mex.hpp ${osqp-matlab_SOURCE_DIR}/osqp_mex.cpp)
+find_package(Matlab REQUIRED)
 
-if(OSQP_MATLAB_USES_MATLAB)
-  find_package(Matlab REQUIRED)
+# Create and install mex files
+function(mjb_build_and_install_mex mexname)
   matlab_add_mex(
-      NAME osqp_mex_matlab
-      OUTPUT_NAME osqp_mex
-      SRC ${MEX_FILES}
-      NO_IMPLICIT_LINK_TO_MATLAB_LIBRARIES
-      LINK_TO ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY} qdldl::qdldl osqp::osqp)
-  # Workaround for missing include https://github.com/oxfordcontrol/osqp-matlab/issues/27
-  target_include_directories(osqp_mex_matlab PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/workaround_include)
+    NAME ${mexname}
+    OUTPUT_NAME ${mexname}
+    SRC ${mujoco-simulink-blockset_SOURCE_DIR}/src/mj.cpp ${mujoco-simulink-blockset_SOURCE_DIR}/src/${mexname}.cpp
+    NO_IMPLICIT_LINK_TO_MATLAB_LIBRARIES
+    LINK_TO ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY} glfw mujoco::mujoco)
+  target_compile_features(${mexname} PRIVATE cxx_std_17)
   install(
-    TARGETS osqp_mex_matlab
+    TARGETS ${mexname}
     EXPORT ${PROJECT_NAME}
-    DESTINATION ${OSQP_MATLAB_INSTALL_MATLAB_LIBDIR})
-  install(
-    FILES ${M_FILES}
-    DESTINATION ${OSQP_MATLAB_INSTALL_MATLAB_MFILESDIR})
+    DESTINATION ${MUJOCO_SIMULINK_BLOCKSET_INSTALL_DIR})
+endmacro()
 
-    # Enable tests
-    if (BUILD_TESTING)
-      find_package(Matlab REQUIRED
-               COMPONENTS MAIN_PROGRAM)
-      configure_file(${CMAKE_CURRENT_SOURCE_DIR}/run_osqp_tests_no_codegen.m.in ${CMAKE_CURRENT_BINARY_DIR}/run_osqp_tests_no_codegen.m @ONLY)
-      # Note: this only works if the project was installed in the correct location and can be found with MATLABPATH
-      add_test(NAME matlab_osqp_tests
-           COMMAND ${Matlab_MAIN_PROGRAM} -nodisplay -nodesktop -nojvm -batch "addpath('${CMAKE_CURRENT_BINARY_DIR}');run_osqp_tests_no_codegen;")
+mjb_build_and_install_mex(mj_depth_near_far)
+mjb_build_and_install_mex(mj_initbus_mex)
+mjb_build_and_install_mex(mj_sampletime)
+mjb_build_and_install_mex(mj_sfun)
 
-    endif()
-endif()
+# Install block files
+file(GLOB block_files ${mujoco-simulink-blockset_SOURCE_DIR}/blocks/*.m 
+                      ${mujoco-simulink-blockset_SOURCE_DIR}/blocks/*.xml 
+                      ${mujoco-simulink-blockset_SOURCE_DIR}/blocks/*.slx)
+install(FILES ${block_files} DESTINATION ${MUJOCO_SIMULINK_BLOCKSET_INSTALL_DIR})
+
+# Install examples files
+file(GLOB example_files ${mujoco-simulink-blockset_SOURCE_DIR}/examples/*.slx)
+install(FILES ${example_files} DESTINATION ${MUJOCO_SIMULINK_BLOCKSET_INSTALL_DIR})
 
 include(AddUninstallTarget)
