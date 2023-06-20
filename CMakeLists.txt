@@ -23,8 +23,8 @@ if(BUILD_TESTING)
   enable_testing()
 endif()
 
-set(MUJOCO_SIMULINK_BLOCKSET_INSTALL_DIR "mex/mujoco_simulink_blockset" CACHE
-    STRING "Location (relative to the install prefix) in which the toolset files are installed.")
+set(MUJOCO_SIMULINK_BLOCKSET_INSTALL_DIR "mex/mujoco_simulink_blockset" CACHE STRING 
+    "Location where the library is installed")
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ycm-0.15)
 
 # Enable RPATH support for installed binaries and libraries
@@ -74,7 +74,7 @@ function(mjb_build_and_install_mex mexname)
     TARGETS ${mexname}
     EXPORT ${PROJECT_NAME}
     DESTINATION ${MUJOCO_SIMULINK_BLOCKSET_INSTALL_DIR})
-endmacro()
+endfunction()
 
 mjb_build_and_install_mex(mj_depth_near_far)
 mjb_build_and_install_mex(mj_initbus_mex)
