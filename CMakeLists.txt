@@ -59,7 +59,7 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(mujoco-simulink-blockset)
 
-find_package(Matlab REQUIRED COMPONENTS ENG_LIBRARY SIMULINK)
+find_package(Matlab REQUIRED COMPONENTS SIMULINK)
 
 # Create and install mex files
 function(mjb_build_and_install_mex mexname)
