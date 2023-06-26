@@ -3,8 +3,8 @@
 
 cmake_minimum_required(VERSION 3.16)
 
-set(MUJOCO_SIMULINK_BLOCKSET_UPSTREAM_VERSION 2.0)
-set(MUJOCO_SIMULINK_BLOCKSET_CMAKE_REVISION 2)
+set(MUJOCO_SIMULINK_BLOCKSET_UPSTREAM_VERSION 3.0)
+set(MUJOCO_SIMULINK_BLOCKSET_CMAKE_REVISION 0)
 set(MUJOCO_SIMULINK_BLOCKSET_CMAKE_VERSION "${MUJOCO_SIMULINK_BLOCKSET_UPSTREAM_VERSION}.${MUJOCO_SIMULINK_BLOCKSET_CMAKE_REVISION}")
 project(mujoco-simulink-blockset-cmake-buildsystem
   LANGUAGES C CXX
@@ -53,8 +53,7 @@ include(FetchContent)
 FetchContent_Declare(
   mujoco-simulink-blockset
   GIT_REPOSITORY https://github.com/mathworks-robotics/mujoco-simulink-blockset
-# GIT_TAG        v${MUJOCO_SIMULINK_BLOCKSET_UPSTREAM_VERSION}
-  GIT_TAG        9d54a4b5b4e2550432828f716934119e968455b4
+  GIT_TAG        v${MUJOCO_SIMULINK_BLOCKSET_UPSTREAM_VERSION}
   )
 
 FetchContent_MakeAvailable(mujoco-simulink-blockset)
