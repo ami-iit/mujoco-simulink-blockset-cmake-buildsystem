@@ -53,7 +53,7 @@ include(FetchContent)
 FetchContent_Declare(
   mujoco-simulink-blockset
   GIT_REPOSITORY https://github.com/mathworks-robotics/mujoco-simulink-blockset
-  GIT_TAG        v${MUJOCO_SIMULINK_BLOCKSET_UPSTREAM_VERSION}
+  GIT_TAG        ${MUJOCO_SIMULINK_BLOCKSET_UPSTREAM_VERSION}
   )
 
 FetchContent_MakeAvailable(mujoco-simulink-blockset)
