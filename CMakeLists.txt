@@ -26,6 +26,7 @@ endif()
 set(MUJOCO_SIMULINK_BLOCKSET_INSTALL_DIR "mex/mujoco_simulink_blockset" CACHE STRING 
     "Location where the library is installed")
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/ycm-0.15)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/cmake-proposed)
 
 # Enable RPATH support for installed binaries and libraries
 include(AddInstallRPATHSupport)
