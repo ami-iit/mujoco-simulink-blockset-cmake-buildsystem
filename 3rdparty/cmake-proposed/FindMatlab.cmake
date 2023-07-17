@@ -1,8 +1,6 @@
-# Vendored from https://gitlab.kitware.com/cmake/cmake/-/raw/v3.20.0-rc3/Modules/FindMatlab.cmake
-# With local modification to implement https://gitlab.kitware.com/cmake/cmake/-/issues/21912
+# Vendored from https://raw.githubusercontent.com/Kitware/CMake/v3.26.4/Modules/FindMatlab.cmake
 # Distributed under the OSI-approved BSD 3-Clause License.  See
 # https://cmake.org/licensing for details.
-
 #[=======================================================================[.rst:
 FindMatlab
 ----------
@@ -54,7 +52,7 @@ The module supports the following components:
   between the release name and the version.
 
 The variable :variable:`Matlab_ROOT_DIR` may be specified in order to give
-the path of the desired Matlab version. Otherwise, the behaviour is platform
+the path of the desired Matlab version. Otherwise, the behavior is platform
 specific:
 
 * Windows: The installed versions of Matlab/MCR are retrieved from the
@@ -85,15 +83,50 @@ Module Input Variables
 ^^^^^^^^^^^^^^^^^^^^^^
 
 Users or projects may set the following variables to configure the module
-behaviour:
+behavior:
+
+:variable:`Matlab_ROOT <<PackageName>_ROOT>`
+  .. versionadded:: 3.25
+
+  Default value for :variable:`Matlab_ROOT_DIR`, the root of the Matlab
+  installation.
 
 :variable:`Matlab_ROOT_DIR`
-  the root of the Matlab installation.
+  The root of the Matlab installation.
+
 :variable:`MATLAB_FIND_DEBUG`
   outputs debug information
+
 :variable:`MATLAB_ADDITIONAL_VERSIONS`
   additional versions of Matlab for the automatic retrieval of the installed
   versions.
+
+Imported targets
+^^^^^^^^^^^^^^^^
+
+.. versionadded:: 3.22
+
+This module defines the following :prop_tgt:`IMPORTED` targets:
+
+``Matlab::mex``
+  The ``mex`` library, always available.
+
+``Matlab::mx``
+  The mx library of Matlab (arrays), always available.
+
+``Matlab::eng``
+  Matlab engine library. Available only if the ``ENG_LIBRARY`` component
+  is requested.
+
+``Matlab::mat``
+  Matlab matrix library. Available only if the ``MAT_LIBRARY`` component
+  is requested.
+
+``Matlab::MatlabEngine``
+  Matlab C++ engine library, always available for R2018a and newer.
+
+``Matlab::MatlabDataArray``
+  Matlab C++ data array library, always available for R2018a and newer.
 
 Variables defined by the module
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -186,7 +219,7 @@ Known issues
 **Symbol clash in a MEX target**
   By default, every symbols inside a MEX
   file defined with the command :command:`matlab_add_mex` have hidden
-  visibility, except for the entry point. This is the default behaviour of
+  visibility, except for the entry point. This is the default behavior of
   the MEX compiler, which lowers the risk of symbol collision between the
   libraries shipped with Matlab, and the libraries to which the MEX file is
   linking to. This is also the default on Windows platforms.
@@ -225,7 +258,7 @@ Reference
 .. variable:: MATLAB_ADDITIONAL_VERSIONS
 
   If set, specifies additional versions of Matlab that may be looked for.
-  The variable should be a list of strings, organised by pairs of release
+  The variable should be a list of strings, organized by pairs of release
   name and versions, such as follows::
 
     set(MATLAB_ADDITIONAL_VERSIONS
@@ -456,7 +489,7 @@ function(matlab_extract_all_installed_versions_from_registry win64 matlab_versio
 
   if(matlabs_from_registry)
     list(REMOVE_DUPLICATES matlabs_from_registry)
-    list(SORT matlabs_from_registry)
+    list(SORT matlabs_from_registry COMPARE NATURAL)
     list(REVERSE matlabs_from_registry)
   endif()
 
@@ -500,7 +533,7 @@ macro(extract_matlab_versions_from_registry_brute_force matlab_versions)
   # we order from more recent to older
   if(matlab_supported_versions)
     list(REMOVE_DUPLICATES matlab_supported_versions)
-    list(SORT matlab_supported_versions)
+    list(SORT matlab_supported_versions COMPARE NATURAL)
     list(REVERSE matlab_supported_versions)
   endif()
 
@@ -604,42 +637,26 @@ endfunction()
 #]=======================================================================]
 function(matlab_get_mex_suffix matlab_root mex_suffix)
 
-  # todo setup the extension properly. Currently I do not know if this is
-  # sufficient for all win32 distributions.
-  # there is also CMAKE_EXECUTABLE_SUFFIX that could be tweaked
+  # find_program does not consider script suffix .bat for Matlab mexext.bat on Windows
   set(mexext_suffix "")
   if(WIN32)
-    list(APPEND mexext_suffix ".bat")
+    set(mexext_suffix ".bat")
   endif()
 
-  # we first try without suffix, since cmake does not understand a list with
-  # one empty string element
   find_program(
     Matlab_MEXEXTENSIONS_PROG
-    NAMES mexext
+    NAMES mexext mexext${mexext_suffix}
     PATHS ${matlab_root}/bin
     DOC "Matlab MEX extension provider"
     NO_DEFAULT_PATH
   )
 
-  foreach(current_mexext_suffix IN LISTS mexext_suffix)
-    if(NOT DEFINED Matlab_MEXEXTENSIONS_PROG OR NOT Matlab_MEXEXTENSIONS_PROG)
-      # this call should populate the cache automatically
-      find_program(
-        Matlab_MEXEXTENSIONS_PROG
-        "mexext${current_mexext_suffix}"
-        PATHS ${matlab_root}/bin
-        DOC "Matlab MEX extension provider"
-        NO_DEFAULT_PATH
-      )
-    endif()
-  endforeach(current_mexext_suffix)
   if(MATLAB_FIND_DEBUG)
     message(STATUS "[MATLAB] Determining mex files extensions from '${matlab_root}/bin' with program '${Matlab_MEXEXTENSIONS_PROG}'")
   endif()
 
   # the program has been found?
-  if((NOT Matlab_MEXEXTENSIONS_PROG) OR (NOT EXISTS ${Matlab_MEXEXTENSIONS_PROG}))
+  if(NOT Matlab_MEXEXTENSIONS_PROG)
     if(MATLAB_FIND_DEBUG)
       message(WARNING "[MATLAB] Cannot found mexext program. Matlab root is ${matlab_root}")
     endif()
@@ -690,7 +707,6 @@ function(matlab_get_mex_suffix matlab_root mex_suffix)
     message(STATUS "[MATLAB] '${Matlab_MEXEXTENSIONS_PROG}' : determined extension '${_matlab_mex_extension}' and error string is '${_matlab_mex_extension_error}'")
   endif()
 
-  unset(Matlab_MEXEXTENSIONS_PROG CACHE)
   set(${mex_suffix} ${_matlab_mex_extension} PARENT_SCOPE)
 endfunction()
 
@@ -746,6 +762,10 @@ function(matlab_get_version_from_matlab_run matlab_binary_program matlab_list_ve
     set(devnull INPUT_FILE NUL)
   endif()
 
+  # we first try to run a simple program using the -r option, and then we use the
+  # -batch option that is supported and recommended since R2019a
+  set(_matlab_get_version_failed_with_r_option FALSE)
+
   # timeout set to 120 seconds, in case it does not start
   # note as said before OUTPUT_VARIABLE cannot be used in a platform
   # independent manner however, not setting it would flush the output of Matlab
@@ -763,19 +783,64 @@ function(matlab_get_version_from_matlab_run matlab_binary_program matlab_list_ve
   if(_matlab_result_version_call MATCHES "timeout")
     if(MATLAB_FIND_DEBUG)
       message(WARNING "[MATLAB] Unable to determine the version of Matlab."
-        " Matlab call timed out after 120 seconds.")
+        " Matlab call with -r option timed out after 120 seconds.")
     endif()
-    return()
+    set(_matlab_get_version_failed_with_r_option TRUE)
   endif()
 
-  if(${_matlab_result_version_call})
+  if(NOT ${_matlab_get_version_failed_with_r_option} AND ${_matlab_result_version_call})
     if(MATLAB_FIND_DEBUG)
-      message(WARNING "[MATLAB] Unable to determine the version of Matlab. Matlab call returned with error ${_matlab_result_version_call}.")
+      message(WARNING "[MATLAB] Unable to determine the version of Matlab. Matlab call with -r option returned with error ${_matlab_result_version_call}.")
     endif()
-    return()
-  elseif(NOT EXISTS "${_matlab_temporary_folder}/matlabVersionLog.cmaketmp")
+    set(_matlab_get_version_failed_with_r_option TRUE)
+  elseif(NOT ${_matlab_get_version_failed_with_r_option} AND NOT EXISTS "${_matlab_temporary_folder}/matlabVersionLog.cmaketmp")
     if(MATLAB_FIND_DEBUG)
       message(WARNING "[MATLAB] Unable to determine the version of Matlab. The log file does not exist.")
+    endif()
+    set(_matlab_get_version_failed_with_r_option TRUE)
+  endif()
+
+  if(_matlab_get_version_failed_with_r_option)
+    execute_process(
+      COMMAND "${matlab_binary_program}" -nosplash -nojvm ${_matlab_additional_commands} -logfile "matlabVersionLog.cmaketmp" -nodesktop -nodisplay -batch "version, exit"
+      OUTPUT_VARIABLE _matlab_version_from_cmd_dummy_batch
+      RESULT_VARIABLE _matlab_result_version_call_batch
+      ERROR_VARIABLE _matlab_result_version_call_error_batch
+      TIMEOUT 120
+      WORKING_DIRECTORY "${_matlab_temporary_folder}"
+      ${devnull}
+      )
+
+    if(_matlab_result_version_call_batch MATCHES "timeout")
+      if(MATLAB_FIND_DEBUG)
+        message(WARNING "[MATLAB] Unable to determine the version of Matlab."
+          " Matlab call with -batch option timed out after 120 seconds.")
+      endif()
+      return()
+    endif()
+
+    if(${_matlab_result_version_call_batch})
+      if(MATLAB_FIND_DEBUG)
+        message(WARNING "[MATLAB] Command executed \"${matlab_binary_program}\" -nosplash -nojvm ${_matlab_additional_commands} -logfile \"matlabVersionLog.cmaketmp\" -nodesktop -nodisplay -batch \"version, exit\"")
+        message(WARNING "_matlab_version_from_cmd_dummy_batch (OUTPUT_VARIABLE): ${_matlab_version_from_cmd_dummy_batch}")
+        message(WARNING "_matlab_result_version_call_batch (RESULT_VARIABLE): ${_matlab_result_version_call_batch}")
+        message(WARNING "_matlab_result_version_call_error_batch (ERROR_VARIABLE): ${_matlab_result_version_call_error_batch}")
+        message(WARNING "[MATLAB] Unable to determine the version of Matlab. Matlab call with -batch option returned with error ${_matlab_result_version_call_batch}.")
+      endif()
+      return()
+    elseif(NOT ${_matlab_get_version_failed_with_r_option} AND NOT EXISTS "${_matlab_temporary_folder}/matlabVersionLog.cmaketmp")
+      if(MATLAB_FIND_DEBUG)
+        message(WARNING "[MATLAB] Unable to determine the version of Matlab. The log file does not exist.")
+      endif()
+      return()
+    endif()
+  endif()
+
+  if(NOT EXISTS "${_matlab_temporary_folder}/matlabVersionLog.cmaketmp")
+    # last resort check as some HPC with "module load matlab" not enacted fail to catch in earlier checks
+    # and error CMake configure even if find_package(Matlab) is not REQUIRED
+    if(MATLAB_FIND_DEBUG)
+      message(WARNING "[MATLAB] Unable to determine the version of Matlab. The version log file does not exist.")
     endif()
     return()
   endif()
@@ -862,7 +927,7 @@ endfunction()
     where ``matlab_file_name`` is the ``UNITTEST_FILE`` without the extension.
   ``UNITTEST_PRECOMMAND``
     Matlab script command to be ran before the file
-    containing the test (eg. GPU device initialisation based on CMake
+    containing the test (eg. GPU device initialization based on CMake
     variables).
   ``TIMEOUT``
     the test timeout in seconds. Defaults to 180 seconds as the
@@ -905,6 +970,16 @@ function(matlab_add_unit_test)
     message(FATAL_ERROR "[MATLAB] The Matlab test name cannot be empty")
   endif()
 
+  # The option to run a batch program with MATLAB changes depending on the MATLAB version
+  # For MATLAB before R2019a (9.6), the only supported option is -r, afterwords the suggested option
+  # is -batch as -r is deprecated
+  set(maut_BATCH_OPTION "-r")
+  if(NOT (Matlab_VERSION_STRING STREQUAL ""))
+    if(Matlab_VERSION_STRING VERSION_GREATER_EQUAL "9.6")
+      set(maut_BATCH_OPTION "-batch")
+    endif()
+  endif()
+
   add_test(NAME ${${prefix}_NAME}
            COMMAND ${CMAKE_COMMAND}
             "-Dtest_name=${${prefix}_NAME}"
@@ -918,6 +993,7 @@ function(matlab_add_unit_test)
             "-Dunittest_file_to_run=${${prefix}_UNITTEST_FILE}"
             "-Dcustom_Matlab_test_command=${${prefix}_CUSTOM_TEST_COMMAND}"
             "-Dcmd_to_run_before_test=${${prefix}_UNITTEST_PRECOMMAND}"
+            "-Dmaut_BATCH_OPTION=${maut_BATCH_OPTION}"
             -P ${_FindMatlab_SELF_DIR}/MatlabTestsRedirect.cmake
            ${${prefix}_TEST_ARGS}
            ${${prefix}_UNPARSED_ARGUMENTS}
@@ -956,7 +1032,8 @@ endfunction()
     list of source files.
   ``LINK_TO``
     a list of additional link dependencies.  The target links to ``libmex``
-    and ``libmx`` by default, unless NO_IMPLICIT_LINK_TO_MATLAB_LIBRARIES is passed.
+    and ``libmx`` by default, unless the
+    ``NO_IMPLICIT_LINK_TO_MATLAB_LIBRARIES`` option is passed.
   ``OUTPUT_NAME``
     if given, overrides the default name. The default name is
     the name of the target without any prefix and
@@ -993,9 +1070,11 @@ endfunction()
     is forwarded to :command:`add_library` or :command:`add_executable`
     commands.
   ``NO_IMPLICIT_LINK_TO_MATLAB_LIBRARIES``
-    This option permits to disable the automatic linking of MATLAB libraries,
-    so that only the libraries that are actually required can be linked via the
-    ``LINK_TO`` option. 
+    .. versionadded:: 3.24
+
+    This option permits to disable the automatic linking of MATLAB
+    libraries, so that only the libraries that are actually required can be
+    linked via the ``LINK_TO`` option.
 
   The documentation file is not processed and should be in the following
   format:
@@ -1092,9 +1171,9 @@ function(matlab_add_mex)
       ${${prefix}_UNPARSED_ARGUMENTS})
   endif()
 
-  target_include_directories(${${prefix}_NAME} PRIVATE ${Matlab_INCLUDE_DIRS})
+  target_include_directories(${${prefix}_NAME} SYSTEM PRIVATE ${Matlab_INCLUDE_DIRS})
 
-  if(NOT ${prefix}_NO_IMPLICIT_LINK_TO_MATLAB_LIBRARIES) 
+  if(NOT ${prefix}_NO_IMPLICIT_LINK_TO_MATLAB_LIBRARIES)
     if(Matlab_HAS_CPP_API)
       if(Matlab_ENGINE_LIBRARY)
         target_link_libraries(${${prefix}_NAME} ${Matlab_ENGINE_LIBRARY})
@@ -1103,7 +1182,7 @@ function(matlab_add_mex)
         target_link_libraries(${${prefix}_NAME} ${Matlab_DATAARRAY_LIBRARY})
       endif()
     endif()
-  
+
     target_link_libraries(${${prefix}_NAME} ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY})
   endif()
   target_link_libraries(${${prefix}_NAME} ${${prefix}_LINK_TO})
@@ -1254,7 +1333,7 @@ function(_Matlab_get_version_from_root matlab_root matlab_or_mcr matlab_known_ve
     endif()
   endif()
 
-  # UNKNOWN is the default behaviour in case we
+  # UNKNOWN is the default behavior in case we
   # - have an erroneous matlab_root
   # - have an initial 'UNKNOWN'
   if(matlab_or_mcr STREQUAL "MATLAB" OR matlab_or_mcr STREQUAL "UNKNOWN")
@@ -1339,7 +1418,7 @@ function(_Matlab_get_version_from_root matlab_root matlab_or_mcr matlab_known_ve
              ${versioninfo_string}
             )
 
-      if(CMAKE_MATCH_1 MATCHES "(([0-9])\\.([0-9]))[\\.0-9]*")
+      if(CMAKE_MATCH_1 MATCHES "(([0-9]+)\\.([0-9]+))[\\.0-9]*")
         set(_matlab_version_tmp "${CMAKE_MATCH_1}")
       endif()
     endif()
@@ -1389,7 +1468,7 @@ function(_Matlab_find_instances_osx matlab_roots)
 
   set(_matlab_possible_roots)
   # on mac, we look for the /Application paths
-  # this corresponds to the behaviour on Windows. On Linux, we do not have
+  # this corresponds to the behavior on Windows. On Linux, we do not have
   # any other guess.
   matlab_get_supported_releases(_matlab_releases)
   if(MATLAB_FIND_DEBUG)
@@ -1430,7 +1509,7 @@ function(_Matlab_find_instances_from_path matlab_roots)
   set(_matlab_possible_roots)
 
   # At this point, we have no other choice than trying to find it from PATH.
-  # If set by the user, this wont change
+  # If set by the user, this won't change.
   find_program(
     _matlab_main_tmp
     NAMES matlab)
@@ -1495,6 +1574,13 @@ endfunction()
 # this variable will get all Matlab installations found in the current system.
 set(_matlab_possible_roots)
 
+if(NOT DEFINED Matlab_ROOT AND DEFINED ENV{Matlab_ROOT})
+  set(Matlab_ROOT $ENV{Matlab_ROOT})
+endif()
+if(DEFINED Matlab_ROOT)
+  set(Matlab_ROOT_DIR ${Matlab_ROOT})
+endif()
+
 if(Matlab_ROOT_DIR)
   # if the user specifies a possible root, we keep this one
 
@@ -1558,6 +1644,30 @@ if(_numbers_of_matlab_roots GREATER 0)
     list(GET _matlab_possible_roots ${_matlab_or_mcr_index} Matlab_Or_MCR)
     list(GET _matlab_possible_roots ${_list_index} Matlab_VERSION_STRING)
     list(GET _matlab_possible_roots ${_matlab_root_dir_index} Matlab_ROOT_DIR)
+  elseif(DEFINED Matlab_FIND_VERSION)
+    set(_list_index -1)
+    foreach(_matlab_root_index RANGE 1 ${_numbers_of_matlab_roots} 3)
+      list(GET _matlab_possible_roots ${_matlab_root_index} _matlab_root_version)
+      if(_matlab_root_version VERSION_GREATER_EQUAL Matlab_FIND_VERSION)
+        set(_list_index ${_matlab_root_index})
+        break()
+      endif()
+    endforeach()
+
+    if(_list_index LESS 0)
+      set(_list_index 1)
+    endif()
+
+    math(EXPR _matlab_or_mcr_index "${_list_index} - 1")
+    math(EXPR _matlab_root_dir_index "${_list_index} + 1")
+    list(GET _matlab_possible_roots ${_matlab_or_mcr_index} Matlab_Or_MCR)
+    list(GET _matlab_possible_roots ${_list_index} Matlab_VERSION_STRING)
+    list(GET _matlab_possible_roots ${_matlab_root_dir_index} Matlab_ROOT_DIR)
+    # adding a warning in case of ambiguity
+    if(_numbers_of_matlab_roots GREATER 3 AND MATLAB_FIND_DEBUG)
+      message(WARNING "[MATLAB] Found several distributions of Matlab. Setting the current version to ${Matlab_VERSION_STRING} (located ${Matlab_ROOT_DIR})."
+                      " If this is not the desired behavior, use the EXACT keyword or provide the -DMatlab_ROOT_DIR=... on the command line")
+    endif()
   else()
     list(GET _matlab_possible_roots 0 Matlab_Or_MCR)
     list(GET _matlab_possible_roots 1 Matlab_VERSION_STRING)
@@ -1566,7 +1676,7 @@ if(_numbers_of_matlab_roots GREATER 0)
     # adding a warning in case of ambiguity
     if(_numbers_of_matlab_roots GREATER 3 AND MATLAB_FIND_DEBUG)
       message(WARNING "[MATLAB] Found several distributions of Matlab. Setting the current version to ${Matlab_VERSION_STRING} (located ${Matlab_ROOT_DIR})."
-                      " If this is not the desired behaviour, use the EXACT keyword or provide the -DMatlab_ROOT_DIR=... on the command line")
+                      " If this is not the desired behavior, use the EXACT keyword or provide the -DMatlab_ROOT_DIR=... on the command line")
     endif()
   endif()
 endif()
@@ -1637,10 +1747,26 @@ else()
   set(_matlab_64Build TRUE)
 endif()
 
+
+if(NOT DEFINED Matlab_MEX_EXTENSION)
+  set(_matlab_mex_extension "")
+  matlab_get_mex_suffix("${Matlab_ROOT_DIR}" _matlab_mex_extension)
+
+  # This variable goes to the cache.
+  set(Matlab_MEX_EXTENSION ${_matlab_mex_extension} CACHE STRING "Extensions for the mex targets (automatically given by Matlab)")
+  unset(_matlab_mex_extension)
+endif()
+
 if(APPLE)
   set(_matlab_bin_prefix "mac") # i should be for intel
   set(_matlab_bin_suffix_32bits "i")
-  set(_matlab_bin_suffix_64bits "i64")
+  if(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm64" AND Matlab_MEX_EXTENSION MATCHES "a64$")
+    # native Apple Silicon Matlab
+    set(_matlab_bin_suffix_64bits "a64")
+  else()
+    # Intel Mac OR Apple Silicon using Rosetta for Matlab
+    set(_matlab_bin_suffix_64bits "i64")
+  endif()
 elseif(UNIX)
   set(_matlab_bin_prefix "gln")
   set(_matlab_bin_suffix_32bits "x86")
@@ -1680,16 +1806,6 @@ else()
 endif()
 
 unset(_matlab_64Build)
-
-
-if(NOT DEFINED Matlab_MEX_EXTENSION)
-  set(_matlab_mex_extension "")
-  matlab_get_mex_suffix("${Matlab_ROOT_DIR}" _matlab_mex_extension)
-
-  # This variable goes to the cache.
-  set(Matlab_MEX_EXTENSION ${_matlab_mex_extension} CACHE STRING "Extensions for the mex targets (automatically given by Matlab)")
-  unset(_matlab_mex_extension)
-endif()
 
 
 if(MATLAB_FIND_DEBUG)
@@ -1869,8 +1985,41 @@ endif()
 
 set(Matlab_LIBRARIES
   ${Matlab_MEX_LIBRARY} ${Matlab_MX_LIBRARY}
-  ${Matlab_ENG_LIBRARY} ${Matlab_MAT_LIBRARY}
-  ${Matlab_DATAARRAY_LIBRARY} ${Matlab_ENGINE_LIBRARY})
+  ${Matlab_ENG_LIBRARY} ${Matlab_MAT_LIBRARY})
+
+if(Matlab_ENGINE_LIBRARY)
+  list(APPEND Matlab_LIBRARIES ${Matlab_ENGINE_LIBRARY})
+endif()
+
+if(Matlab_DATAARRAY_LIBRARY)
+  list(APPEND Matlab_LIBRARIES ${Matlab_DATAARRAY_LIBRARY})
+endif()
+
+# internal
+# This small stub permits to add imported targets for the found MATLAB libraries
+function(_Matlab_add_imported_target _matlab_library_variable_name _matlab_library_target_name)
+  if(Matlab_${_matlab_library_variable_name}_LIBRARY)
+    if(NOT TARGET Matlab::${_matlab_library_target_name})
+      add_library(Matlab::${_matlab_library_target_name} UNKNOWN IMPORTED)
+      set_target_properties(Matlab::${_matlab_library_target_name} PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES "${Matlab_INCLUDE_DIRS}"
+        IMPORTED_LOCATION "${Matlab_${_matlab_library_variable_name}_LIBRARY}")
+      if(_matlab_library_target_name STREQUAL "mex" OR
+         _matlab_library_target_name STREQUAL "eng" OR
+         _matlab_library_target_name STREQUAL "mat")
+        set_target_properties(Matlab::${_matlab_library_target_name} PROPERTIES
+          INTERFACE_LINK_LIBRARIES Matlab::mx)
+      endif()
+    endif()
+  endif()
+endfunction()
+
+_Matlab_add_imported_target(MX mx)
+_Matlab_add_imported_target(MEX mex)
+_Matlab_add_imported_target(ENG eng)
+_Matlab_add_imported_target(MAT mat)
+_Matlab_add_imported_target(ENGINE MatlabEngine)
+_Matlab_add_imported_target(DATAARRAY MatlabDataArray)
 
 find_package_handle_standard_args(
   Matlab
@@ -1904,3 +2053,4 @@ if(Matlab_INCLUDE_DIRS AND Matlab_LIBRARIES)
 endif()
 
 cmake_policy(POP)
+
